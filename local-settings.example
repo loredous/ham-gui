@@ -1,0 +1,10 @@
+{
+    "global":
+    {
+        "callsign": "K0JLB" # Amateur Radio Callsign
+    }
+    "pat":
+    {
+        "winlink_password":"WINLINKPASSWORD" # Winlink secure access password
+    }
+}

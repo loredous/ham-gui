@@ -1,0 +1,8 @@
+network:
+  version: 2
+  ethernets:
+    wlan0:
+      addresses:
+        - 10.0.0.1/24
+    eth0:
+      dhcp4: yes

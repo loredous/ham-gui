@@ -1,46 +1,76 @@
 from typing import Union
 import PySimpleGUI
 from components.componentbase import ComponentBase, ButtonColorPresets
+from pystemd.systemd1 import Unit
 
-class WifiToggle(ComponentBase):
-    _name:str = "WifiToggle"
-    _ui_key: str = "wifi_toggle"
+defaults = {
+    "button_color":ButtonColorPresets.NORMAL.value,
+    "font":"monospace 18 normal",
+    "expand_x":True,
+    "auto_size_button":False,
+    "size":(12,3)
+}
 
-    def _set_wifi_disabled(self):
-        pass
+class APToggle(ComponentBase):
+    _name:str = "AP Toggle"
+    _ui_key: str = "ap_toggle"
 
-    def _set_wifi_ap(self):
-        pass
+    def _set_ap_disabled(self):
+        self._logger.info(f"Disabling AP")
+        self._hostapdsvc.Unit.Stop('replace')
+        self._dnsmasqsvc.Unit.Stop(b'replace')
+        self.ui_control.update(text="Wifi AP - Off",button_color=ButtonColorPresets.UNKNOWN.value)
 
-    def _set_wifi_client(self):
-        pass
+    def _set_ap_enabled(self):
+        self._logger.info(f"Enabling AP")
+        self._hostapdsvc.Unit.Start('replace')
+        self._dnsmasqsvc.Unit.Start(b'replace')
+        self.ui_control.update(text="Wifi AP - On",button_color=ButtonColorPresets.GOOD.value)
 
     def _setup(self):
-        self._wifi = pywifi.PyWiFi()
+        self._enabled = False
+        self._hostapdsvc = Unit('hostapd.service', _autoload=True)
+        self._dnsmasqsvc = Unit('dnsmasq.service', _autoload=True)
+        self._service_issue = False
+        if self._hostapdsvc.Unit.LoadError != (b'', b''):
+            self._service_issue = True
+            self._logger.error(f'Error loading hostapd service:\n{self._hostapdsvc.Unit.LoadError[0].decode()}\n{self._hostapdsvc.Unit.LoadError[1].decode()}')
+        if self._dnsmasqsvc.Unit.LoadError != (b'', b''):
+            self._service_issue = True
+            self._logger.error(f'Error loading dnsmasq service:\n{self._hostapdsvc.Unit.LoadError[0].decode()}\n{self._hostapdsvc.Unit.LoadError[1].decode()}')
+    
+    def teardown(self):
+        self._hostapdsvc.Unit.Stop(b'replace')
+        self._dnsmasqsvc.Unit.Stop(b'replace')
+
 
     def _generate_ui_control(self) -> Union[PySimpleGUI.Button, PySimpleGUI.ButtonMenu]:
-        return PySimpleGUI.ButtonMenu(
-            "Wifi",
-            ["menu",["Off","AP Mode","Client Mode"]],
-            button_color=ButtonColorPresets.NORMAL,
-            font=("monospace 22 normal"), 
-            expand_x=True,
-            auto_size_button=False
+        return PySimpleGUI.Button(
+            "Wifi AP",
+            disabled = self._service_issue,
+            **defaults
             )
     
     def update_state(self):
-        pass
+        if self._hostapdsvc.Unit.ActiveState == b'inactive':
+            if self._enabled:
+                self.ui_control.update(button_color=ButtonColorPresets.UNKNOWN.value)
+            else:
+                self.ui_control.update(button_color=ButtonColorPresets.NORMAL.value)
+        else:
+            if self._hostapdsvc.Unit.SubState == b'running':
+                self.ui_control.update(button_color=ButtonColorPresets.GOOD.value)
+            else:
+                self.ui_control.update(button_color=ButtonColorPresets.BAD.value)
 
     def ui_control_interacted(self, value:str = ""):
-        self._logger.info(f"Wifi Toggle set to {value}")
-        match value:
-            case "Off":
-                self._set_wifi_disabled()
-            case "AP Mode":
-                self._set_wifi_ap()
-            case "Client Mode":
-                self._set_wifi_client()
-        self._ui_control.update(button_text=f"Wifi - {value.split(' ')[0]}")
+        self._logger.debug(f"AP Toggle hit")
+        self._enabled = not self._enabled
+        if self._enabled:
+            self._set_ap_enabled()
+        else:
+            self._set_ap_disabled()
+        
 
 
 class EthernetToggle(ComponentBase):
@@ -51,10 +81,7 @@ class EthernetToggle(ComponentBase):
         return PySimpleGUI.ButtonMenu(
             "Eth",
             ["menu",["Off","Private Network","Client Mode"]],
-            button_color=ButtonColorPresets.NORMAL,
-            font=("monospace 22 normal"), 
-            expand_x=True,
-            auto_size_button=False
+            **defaults
             )
     
     def update_state(self):
@@ -66,4 +93,4 @@ class EthernetToggle(ComponentBase):
 
 
 
-components = [WifiToggle, EthernetToggle]
+components = [APToggle, EthernetToggle]

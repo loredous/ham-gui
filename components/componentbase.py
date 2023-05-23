@@ -6,12 +6,19 @@ from typing import Tuple, Union
 from pydantic import BaseModel
 import PySimpleGUI
 
-
 class ButtonColorPresets(Enum):
     NORMAL = ('black','grey')
     GOOD = ('black','green')
     UNKNOWN = ('black','yellow')
     BAD = ('black','red')
+
+BUTTON_DEFAULTS = {
+    "button_color":ButtonColorPresets.NORMAL.value,
+    "font":"monospace 18 normal",
+    "expand_x":True,
+    "auto_size_button":False,
+    "size":(12,3)
+}
 
 class ComponentLogMessage(BaseModel):
     class LogMessageLevel(IntEnum):
@@ -60,6 +67,9 @@ class ComponentBase(ABC):
         self._setup()
 
     def _setup(self):
+        pass
+
+    def teardown(self):
         pass
 
     @property
